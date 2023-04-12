@@ -79,7 +79,7 @@ export const baseTransactionFromDTO = (transaction, { networkProperties }) => {
     return (baseTransaction = {
         type: transaction.type,
         deadline: transaction.deadline.toLocalDateTime(networkProperties.epochAdjustment).toString(),
-        height: transaction.transactionInfo?.height.toString(),
+        height: parseInt(transaction.transactionInfo?.height.toString()),
         hash: transaction.transactionInfo?.hash,
         id: transaction.transactionInfo?.id,
         fee: getMosaicRelativeAmount(transaction.maxFee.toString(), networkProperties.networkCurrency.divisibility),

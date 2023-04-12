@@ -1,4 +1,5 @@
 export * from './account';
+export * from './chat';
 export * from './dto';
 export * from './helper';
 export * from './hooks';

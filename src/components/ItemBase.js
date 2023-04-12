@@ -11,7 +11,7 @@ const MAX_SCALE = 1.2;
 const ANIMATION_DURATION = 250;
 
 export function ItemBase(props) {
-    const { children, contentContainerStyle, style, borderColor, onPress } = props;
+    const { children, contentContainerStyle, style, borderColor, onPress, onLongPress } = props;
     const [isExpanded, setIsExpanded] = useState(false);
     const opacity = useSharedValue(0);
     const scale = useSharedValue(1);
@@ -42,6 +42,11 @@ export function ItemBase(props) {
             setIsExpanded(true);
         }
     };
+    const handleLongPress = () => {
+        if (onLongPress) {
+            onLongPress();
+        }
+    };
 
     const isFocused = useIsFocused();
 
@@ -60,7 +65,7 @@ export function ItemBase(props) {
     return (
         // <Animated.View entering={FadeIn.delay(layoutAnimationDelay)}>
         <FormItem type="list" style={styleRoot}>
-            <TouchableNative onPress={handlePress}>
+            <TouchableNative onPress={handlePress} onLongPress={handleLongPress}>
                 <Animated.View style={styleCard}>{children}</Animated.View>
             </TouchableNative>
         </FormItem>

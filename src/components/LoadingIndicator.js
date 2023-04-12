@@ -3,12 +3,12 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { colors } from 'src/styles';
 
 export const LoadingIndicator = (props) => {
-    const { size, fill } = props;
+    const { size, fill, style } = props;
     const indicatorSize = size === 'sm' ? 'small' : 'large';
 
     return (
         <>
-            <View style={styles.root}>
+            <View style={[styles.root, style]}>
                 <View style={styles.spinnerContainer}>
                     <ActivityIndicator size={indicatorSize} color={colors.primary} />
                 </View>

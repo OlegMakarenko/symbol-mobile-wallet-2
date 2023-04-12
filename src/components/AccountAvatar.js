@@ -56,6 +56,9 @@ export const AccountAvatar = (props) => {
         case 'sm':
             rootStyle.push(styles.rootSm);
             break;
+        case 'xm':
+            rootStyle.push(styles.rootXm);
+            break;
         case 'md':
             rootStyle.push(styles.rootMd);
             break;
@@ -111,6 +114,11 @@ const styles = StyleSheet.create({
         width: 24,
         height: 24,
         borderRadius: 12,
+    },
+    rootXm: {
+        width: 36,
+        height: 36,
+        borderRadius: 16,
     },
     rootMd: {
         width: 48,

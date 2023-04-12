@@ -56,11 +56,14 @@ export class TransactionService {
         );
     }
 
-    static async sendTransferTransaction(transaction, account, networkProperties) {
+    static async sendTransferTransaction(transaction, account, networkProperties, recipientPublicKey) {
         const networkType = networkIdentifierToNetworkType(networkProperties.networkIdentifier);
-        if (transaction.messageEncrypted) {
+        if (transaction.messageEncrypted && !recipientPublicKey) {
             const recipientAccount = await AccountService.fetchAccountInfo(networkProperties, transaction.recipientAddress);
             transaction.recipientPublicKey = recipientAccount.publicKey;
+        }
+        else if (transaction.messageEncrypted) {
+            transaction.recipientPublicKey = recipientPublicKey;
         }
         const transactionDTO = transferTransactionToDTO(transaction, networkProperties, account);
         const signedTransaction = Account.createFromPrivateKey(account.privateKey, networkType).sign(
@@ -107,7 +110,7 @@ export class TransactionService {
         return transactionFromDTO(transactionDTO, { networkProperties, currentAccount });
     }
 
-    static async decryptMessage(transaction, currentAccount, networkProperties) {
+    static async decryptMessage(transaction, currentAccount, networkProperties, recipientPublicKey) {
         if (transaction.type !== TransactionType.TRANSFER) {
             throw Error('error_failed_decrypt_message_invalid_transaction_type');
         }
@@ -120,7 +123,13 @@ export class TransactionService {
             return decryptMessage(transaction.message.encryptedText, currentAccount.privateKey, transaction.signerPublicKey);
         }
 
-        if (isOutgoingTransaction(transaction, currentAccount)) {
+        const isOutgoing = isOutgoingTransaction(transaction, currentAccount);
+
+        if (isOutgoing && recipientPublicKey) {
+            return decryptMessage(transaction.message.encryptedText, currentAccount.privateKey, recipientPublicKey);
+        }
+
+        if (isOutgoing) {
             const recipientAccount = await AccountService.fetchAccountInfo(networkProperties, transaction.recipientAddress);
 
             return decryptMessage(transaction.message.encryptedText, currentAccount.privateKey, recipientAccount.publicKey);

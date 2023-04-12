@@ -8,6 +8,8 @@ export * from './AddressBookList';
 export * from './AddSeedAccount';
 export * from './Assets';
 export * from './AssetDetails';
+export * from './Chat'
+export * from './ChatList'
 export * from './CreateWallet';
 export * from './ImportWallet';
 export * from './Harvesting';

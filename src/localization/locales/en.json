@@ -96,6 +96,8 @@
     "screen_TransactionDetails": "Transaction Details",
     "screen_AssetDetails": "Asset Details",
     "screen_Harvesting": "Harvesting",
+    "screen_Chat": "Chat",
+    "screen_ChatList": "Chats",
     "screen_Passcode": "Passcode",
 
     "data_accountAliasNames": "Alias Names",

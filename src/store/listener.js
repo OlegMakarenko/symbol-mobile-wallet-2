@@ -3,7 +3,7 @@ import { showMessage } from 'react-native-flash-message';
 import { Constants } from 'src/config';
 import { $t } from 'src/localization';
 import { ListenerService } from 'src/services';
-import { handleError } from 'src/utils';
+import { handleError, vibrate } from 'src/utils';
 
 export default {
     namespace: 'listener',
@@ -35,6 +35,7 @@ export default {
                         dispatchAction({ type: 'transaction/fetchData', payload: {keepPages: true} });
                         DeviceEventEmitter.emit(Constants.Events.CONFIRMED_TRANSACTION);
                         showMessage({ message: $t('message_transactionConfirmed'), type: 'info' });
+                        vibrate().short();
                     },
                     // handle unconfirmed transactions
                     onUnconfirmedAdd: () => {

@@ -14,6 +14,8 @@ export class PersistentStorage {
     static MOSAIC_INFOS_KEY = 'mosaicInfos';
     static ACCOUNT_INFOS_KEY = 'accountInfos';
     static ADDRESS_BOOK_KEY = 'addressBook';
+    static CHAT_GROUPS_KEY = 'chatGroups';
+    static MESSAGE_CACHE_KEY = 'messageCache';
 
     // Data Schema Version
     static getDataSchemaVersion = async () => {
@@ -182,6 +184,36 @@ export class PersistentStorage {
         return this.set(this.ADDRESS_BOOK_KEY, payload.toJSON());
     }
 
+    // Chat Groups
+    static async getChatGroups() {
+        const rawData = await this.get(this.CHAT_GROUPS_KEY);
+
+        try {
+            return JSON.parse(rawData);
+        } catch {
+            return [];
+        }
+    }
+
+    static async setChatGroups(payload) {
+        return this.set(this.CHAT_GROUPS_KEY, JSON.stringify(payload));
+    }
+
+    // Message Cache
+    static async getMessageCache() {
+        const rawData = await this.get(this.MESSAGE_CACHE_KEY);
+
+        try {
+            return JSON.parse(rawData);
+        } catch {
+            return {};
+        }
+    }
+
+    static async setMessageCache(payload) {
+        return this.set(this.MESSAGE_CACHE_KEY, JSON.stringify(payload));
+    }
+
     // API
     static set = (key, value) => {
         return AsyncStorage.setItem(key, value);
@@ -208,6 +240,8 @@ export class PersistentStorage {
             this.remove(this.MOSAIC_INFOS_KEY),
             this.remove(this.ACCOUNT_INFOS_KEY),
             this.remove(this.ADDRESS_BOOK_KEY),
+            this.remove(this.CHAT_GROUPS_KEY),
+            this.remove(MESSAGE_CACHE_KEY),
         ]);
     };
 }
