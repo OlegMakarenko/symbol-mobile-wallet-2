@@ -232,6 +232,11 @@ export const decryptMessage = (encryptedMessage, recipientPrivateKey, senderPubl
     return Buffer.from(hex, 'hex').toString();
 };
 
+export const encryptMessage = (message, privateKey, publicKey) => {
+    const hex = Crypto.encode(privateKey, publicKey, message).toUpperCase();
+    return Buffer.from(hex, 'hex').toString();
+}
+
 /**
  * Checks whether transaction is awaiting a signature by account.
  */

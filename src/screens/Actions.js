@@ -34,7 +34,7 @@ export const Actions = connect((state) => ({
         {
             title: 'Chats',
             description: 'Chat with your contacts by sending transfer transactions',
-            icon: require('src/assets/images/art-wheel.png'),
+            icon: require('src/assets/images/art-chats.png'),
             handler: Router.goToChatList,
         },
     ];

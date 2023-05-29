@@ -1,10 +1,11 @@
 import _ from 'lodash';
 import React, { useEffect, useState } from 'react';
 import { memo, useMemo } from 'react';
-import { DeviceEventEmitter, Dimensions, Image, Linking, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { DeviceEventEmitter, Dimensions, Image, Linking, Modal, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { showMessage } from 'react-native-flash-message';
-import { FlatList, RefreshControl, TextInput } from 'react-native-gesture-handler';
-import Animated, { Easing, FadeIn, FadeInLeft, FadeInUp, FadeOutLeft, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { FlatList, RefreshControl, TextInput, TouchableWithoutFeedback } from 'react-native-gesture-handler';
+import { launchImageLibrary } from 'react-native-image-picker';
+import Animated, { Easing, FadeIn, FadeInLeft, FadeInUp, FadeOut, FadeOutLeft, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { AccountAvatar, ButtonPlain, DialogBox, LoadingIndicator, Screen, StyledText, TableView } from 'src/components';
 import { Constants } from 'src/config';
 import { $t } from 'src/localization';
@@ -13,31 +14,36 @@ import { AccountService, ListenerService, TransactionService } from 'src/service
 import { PersistentStorage } from 'src/storage';
 import { connect } from 'src/store';
 import { borders, colors, fonts, layout, spacings } from 'src/styles';
-import { copyToClipboard, fetchChatMessages, formatDate, getTransactionFees, handleError, mergeMessageHistory, publicAccountFromPrivateKey, transactionFromDTO, trunc, useDataManager, useInit, useToggle } from 'src/utils';
+import { chunkString, chunkStringBytes, chunkSubstr, copyToClipboard, createImageMessageTransaction, createLongMessageTransaction, fetchChatMessages, formatDate, getColorFromHash, getTransactionFees, handleError, isSameDay, mergeMessageHistory, publicAccountFromPrivateKey, transactionFromDTO, trunc, useDataManager, useInit, useToggle } from 'src/utils';
 import { TransactionType } from 'symbol-sdk';
 
 const SCREEN_WIDTH = Dimensions.get('screen').width;
+const SCREEN_HEIGHT = Dimensions.get('screen').height;
 const allowedExtensions = ['.png', '.PNG', '.jpg', '.JPG', '.jpeg', '.JPEG', '.gif', '.GIF', '.bmp', '.BMP'];
 const cache = {};
 const publicKeyMap = {};
 const addressBookMap = {};
 
 const Message = memo(function Message(props) {
-    const { isGroup, currentAccount, signerAddress, previousMessageSignerAddress, nextMessageSignerAddress, text, isEncrypted, date, height } = props;
+    const { isGroup, currentAccount, signerAddress, previousMessageSignerAddress, nextMessageSignerAddress, text, isEncrypted, date, previousDate, height, imageBase64 } = props;
 
-    const signerName = addressBookMap[signerAddress];
+    const [isImageViewVisible, toggleImageView] = useToggle(false);
+
+    const signerName = addressBookMap[signerAddress]?.name;
+    const signerColor = addressBookMap[signerAddress]?.color || colors.textBody;
     const isFirstMessageInSet = nextMessageSignerAddress !== signerAddress;
     const isLastMessageInSet = previousMessageSignerAddress !== signerAddress;
     const isMiddleMessageInSet = previousMessageSignerAddress === signerAddress;
     const isUnconfirmed = !height;
     const isOurMessage = signerAddress === currentAccount.address;
+    const isDateShown = !isSameDay(date, previousDate);
     const messageStyle = [
         styles.message, 
         isOurMessage ? styles.messageOur : styles.messageTheir, 
         isOurMessage && isMiddleMessageInSet ? {borderBottomRightRadius: 0, marginBottom: 0} : null, 
         !isOurMessage && isMiddleMessageInSet ? {borderBottomLeftRadius: 0, marginBottom: 0} : null, 
         isUnconfirmed ? styles.messageUnconfirmed : null,
-        // !isFirstMessageInSet ? styles.messageInSet : null
+        //isFirstMessageInSet && signerName ? {marginTop: 0} : null
     ];
     const messageContainerStyle = [
         styles.messageContainer, 
@@ -48,6 +54,7 @@ const Message = memo(function Message(props) {
         const lastIndex = url.lastIndexOf('.');
         return lastIndex !== -1 && allowedExtensions.includes(url.substr(lastIndex))
     });
+    const textStyle = messageImages.length ? {maxWidth: 200} : null;
     const avatarStyle = [
         styles.senderAvatar,
         !isFirstMessageInSet ? {opacity: 0} : null 
@@ -56,6 +63,9 @@ const Message = memo(function Message(props) {
     const handleMessagePress = () => {
         if (messageUrls.length) {
             Linking.openURL(messageUrls[0]);
+        }
+        if (imageBase64) {
+            toggleImageView();
         }
     }
     const handleLongMessagePress = () => {
@@ -68,47 +78,44 @@ const Message = memo(function Message(props) {
     }
 
     return (
-        <Animated.View entering={FadeInUp} style={messageContainerStyle}>
-            {!isOurMessage && isGroup && <AccountAvatar size="xm" address={signerAddress} style={avatarStyle}/>}
-            {!isOurMessage && isGroup && isFirstMessageInSet && signerName && <StyledText type="label" style={styles.messageSenderName}>{signerName}</StyledText>}
-            {/* {isOurMessage && !isUnconfirmed && (
-                <Animated.View entering={FadeIn}> 
-                    <StyledText type="label" style={styles.date}>{formatDate(date, $t)}</StyledText>
-                </Animated.View>
-            )}
-            {isOurMessage && isUnconfirmed && (
-                <Image source={require('src/assets/images/icon-pending.png')} style={styles.iconPending} />
-            )}*/}
-            <TouchableOpacity  
-                style={messageStyle} 
-                activeOpacity={0.8}
-                onPress={handleMessagePress}
-                onLongPress={handleLongMessagePress}
-            >
-                {/* {!isOurMessage && isGroup && isFirstMessageInSet && signerName && <StyledText type="label" style={styles.messageSenderName}>{signerName}</StyledText>} */}
-                <StyledText type="body">{text}</StyledText>
-                {messageImages.map((uri, index) => (
-                    <Image source={{uri}} style={{ width: '100%', height: 200, resizeMode: 'contain'}} key={'img' + index} />
-                ))}
-                <View style={styles.messageStatus}>
-                    {!isUnconfirmed &&  <StyledText type="label" style={styles.date}>{formatDate(date, $t, false, false, false)}</StyledText>}
-                    {isUnconfirmed && (
-                        <Image source={require('src/assets/images/icon-pending.png')} style={styles.iconPending} />
-                    )}
-                    {isEncrypted && (
-                        <Image source={require('src/assets/images/icon-tx-lock.png')} style={styles.messageLockIcon} />
-                    )}
+        <View style={{width: '100%'}}>
+            {isDateShown && <StyledText type="label" style={styles.date}>{formatDate(date, $t, false, false)}</StyledText>}
+            <Animated.View entering={FadeInUp} style={messageContainerStyle}>
+                {!isOurMessage && isGroup && <AccountAvatar size="xm" address={signerAddress} style={avatarStyle}/>}
+                <View style={{width: '100%'}}>
+                {!isOurMessage && isGroup && isFirstMessageInSet && signerName && <StyledText type="label" style={[styles.messageSenderName, {color: signerColor}]} numberOfLines={1}>{signerName}</StyledText>}
+                <TouchableOpacity  
+                    style={messageStyle} 
+                    activeOpacity={0.8}
+                    onPress={handleMessagePress}
+                    onLongPress={handleLongMessagePress}
+                >
+                    {/* {!isOurMessage && isGroup && isFirstMessageInSet && signerName && <StyledText type="label" style={[styles.messageSenderName, {color: signerColor}]} numberOfLines={1}>{signerName}</StyledText>} */}
+                    {!!text && <StyledText type="body" style={textStyle}>{text}</StyledText>}
+                    {messageImages.map((uri, index) => (
+                        <Image source={{uri}} style={{ width: 200, height: 200, resizeMode: 'cover'}} key={'img' + index} />
+                    ))}
+                    {!!imageBase64 && <Image source={{uri: `data:image/jpeg;base64,${imageBase64}`}} style={{ width: 200, height: 200, resizeMode: 'cover'}} />}
+                    <View style={styles.messageStatus}>
+                        {/* {!isUnconfirmed &&  <StyledText type="label" style={styles.date}>{formatDate(date, $t, false, false, false)}</StyledText>} */}
+                        {isUnconfirmed && (
+                            <Image source={require('src/assets/images/icon-pending.png')} style={styles.iconPending} />
+                        )}
+                        {isEncrypted && (
+                            <Image source={require('src/assets/images/icon-tx-lock.png')} style={styles.messageLockIcon} />
+                        )}
+                    </View>
+                </TouchableOpacity>
                 </View>
-            </TouchableOpacity>
-            {/* {!isOurMessage && !isUnconfirmed && (
-                <Animated.View entering={FadeIn}> 
-                    <StyledText type="label" style={styles.date}>{formatDate(date, $t)}</StyledText>
+                <Animated.View entering={FadeIn} exiting={FadeOut}> 
+                    {imageBase64 && <Modal animationType="fade" visible={isImageViewVisible} onRequestClose={toggleImageView}>
+                        <View style={{width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
+                            <Image source={{uri: `data:image/jpeg;base64,${imageBase64}`}} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, resizeMode: 'contain'}} />
+                            </View> 
+                    </Modal>}
                 </Animated.View>
-            )}
-            {!isOurMessage && isUnconfirmed && (
-                <Image source={require('src/assets/images/icon-pending.png')} style={styles.iconPending} />
-            )} */}
-        </Animated.View>
+            </Animated.View>
+        </View>
     )
 });
 
@@ -117,7 +124,6 @@ const Messages = memo(function Messages(props) {
     const messageHistory = useMemo(() => {
         const messages = [...confirmed];
         unconfirmed.forEach((message, index) => {
-            console.log(messages[index]?.hash[0], message.hash[0], messages[index]?.hash !== message.hash, message.message.text)
             if (messages[index]?.hash !== message.hash) {
                 messages.unshift(message);
             }
@@ -133,7 +139,7 @@ const Messages = memo(function Messages(props) {
             onEndReachedThreshold={1}
             contentContainerStyle={styles.listContainer}
             data={messageHistory}
-            keyExtractor={(item, index) => item.hash || index}
+            keyExtractor={(item, index) => item.hash || item.message?.timestamp || index}
             renderItem={({ item, index }) => (
                 <Message
                     isGroup={isGroup} 
@@ -141,7 +147,9 @@ const Messages = memo(function Messages(props) {
                     signerAddress={item.signerAddress}
                     nextMessageSignerAddress={messageHistory[index + 1]?.signerAddress}
                     previousMessageSignerAddress={messageHistory[index - 1]?.signerAddress}
+                    previousDate={messageHistory[index + 1]?.deadline}
                     text={item.message?.text || ''}
+                    imageBase64={item.message?.imageBase64 || ''}
                     isEncrypted={item.message?.isEncrypted}
                     date={item.deadline}
                     height={item.height}
@@ -179,6 +187,7 @@ export const Chat = connect((state) => ({
     const [isFirstLoading, setIsFirstLoading] = useState(true);
     const [isTextBoxFocused, setIsTextBoxFocused] = useState(false);
     const [messageText, setMessageText] = useState('');
+    const [attachedImage, setAttachedImage] = useState({});
     const [pendingMessageTexts, setPendingMessageTexts] = useState([]);
     const [unconfirmedMessages, setUnconfirmedMessages] = useState([]);
     const [messages, setMessages] = useState([]);
@@ -186,111 +195,176 @@ export const Chat = connect((state) => ({
     const [isLastPage, setIsLastPage] = useState(false);
     const [isNextPageRequested, setIsNextPageRequested] = useState(false);
     const [isRefreshRequested, setIsRefreshRequested] = useState(false);
-    const [isUnconfirmedRequested, setIsUnconfirmedRequested] = useState(false);
     const [isPrivateKeyDialogShown, togglePrivateKeyDialog] = useToggle(false);
-    
-    // const blockTimeWidth = useSharedValue(0);
-    // const blockTimeStyle = useAnimatedStyle(() => ({
-    //     width: blockTimeWidth.value,
-    // }));
+
     
     const transaction = {
         signerAddress: currentAccount.address,
         recipientAddress: chatAddress,
         mosaics: [],
-        messageText,
-        messageEncrypted: messageText.length > 0 && chatPublicKey.length > 0,
+        messageText: messageText || attachedImage.base64,
+        messageEncrypted: (messageText.length > 0 || attachedImage.base64?.length > 0) && chatPublicKey.length > 0,
         fee: 0
     };
-    const transactionFees = useMemo(() => getTransactionFees(transaction, networkProperties), [messageText]);
+    const transactionFees = useMemo(() => getTransactionFees(transaction, networkProperties), [messageText, attachedImage]);
     const fee = transactionFees.medium;
     const transactionWithFee = { ...transaction, fee };
+
+    const fetchTransactionsDirect = async (type) => {
+        const nextPageNumber = currentPageNumber + 1;
+        let pageNumber;
+        let pageSize;
+        let group;
+
+        switch (type) {
+            default:
+            case 'init':
+                pageNumber = 1;
+                pageSize = 100;
+                group = 'confirmed';
+                break;
+            case 'refresh':
+                pageNumber = 1;
+                pageSize = 25;
+                group = 'confirmed';
+                break;
+            case 'next':
+                pageNumber = nextPageNumber;
+                pageSize = 100;
+                group = 'unconfirmed';
+                break;
+            case 'unconfirmed':
+                pageNumber = 1;
+                pageSize = 100;
+                group = 'unconfirmed';
+                break;
+        }
+        console.log('[Fetch Messsages]', type, pageNumber, group)
+        const page = await fetchChatMessages(networkProperties, {
+            currentAccount,
+            recipientAddress: chatAddress,
+            recipientPrivateKey: chatPrivateKey,
+            publicKeyMap,
+            pageSize,
+            pageNumber,
+            group,
+            cache,
+        });
+        const isLastPage = page.length === 0;
+
+        if (type === 'refresh') {
+            await fetchTransactionsDirect('unconfirmed');
+        }
+
+        setPendingMessageTexts([]);
+
+        if (type === 'unconfirmed') {
+            setUnconfirmedMessages(page);
+        }
+        else {
+            setMessages(messages => mergeMessageHistory(messages, page));
+        }
+
+        if (type === 'next') {
+            setPageNumber(nextPageNumber);
+            setIsLastPage(isLastPage);
+        }
+
+        await PersistentStorage.setMessageCache(cache);
+    };
     
-    const [fetchTransactions, isLoading] = useDataManager(
-        async (type) => {
-            const nextPageNumber = currentPageNumber + 1;
-            let pageNumber;
-            let pageSize;
-            let group;
-
-            switch (type) {
-                default:
-                case 'init':
-                    pageNumber = 1;
-                    pageSize = 100;
-                    group = 'confirmed';
-                    break;
-                case 'refresh':
-                    pageNumber = 1;
-                    pageSize = 25;
-                    group = 'confirmed';
-                    break;
-                case 'next':
-                    pageNumber = nextPageNumber;
-                    pageSize = 100;
-                    group = 'unconfirmed';
-                    break;
-                case 'unconfirmed':
-                    pageNumber = 1;
-                    pageSize = 100;
-                    group = 'unconfirmed';
-                    break;
-            }
-            console.log('[Fetch Messsages]', type, pageNumber, group)
-            const page = await fetchChatMessages(networkProperties, {
-                currentAccount,
-                recipientAddress: chatAddress,
-                recipientPrivateKey: chatPrivateKey,
-                publicKeyMap,
-                pageSize,
-                pageNumber,
-                group,
-                cache,
-            });
-            const isLastPage = page.length === 0;
-
-            setPendingMessageTexts([]);
-
-            if (type === 'unconfirmed') {
-                setUnconfirmedMessages(page);
-            }
-            else {
-                setMessages(messages => mergeMessageHistory(messages, page));
-            }
-
-            if (type === 'next') {
-                setPageNumber(nextPageNumber);
-                setIsLastPage(isLastPage);
-            }
-
-            await PersistentStorage.setMessageCache(cache);
-        },
-        null,
-    );
+    const [fetchTransactions, isLoading] = useDataManager(fetchTransactionsDirect, null, handleError);
     const [send] = useDataManager(
         async () => {
             const timestamp = Math.round((new Date().getTime() / 1000)) - networkProperties.epochAdjustment;
-            const transaction = {
-                ...transactionWithFee,
-                messageText: `@@1@t${timestamp}@m${messageText}`
+        
+            // const isLongText = messageText?.length > 200;
+
+            // if (isLongText && isGroup) {
+            //     const aggregateTransaction = createLongMessageTransaction({
+            //         text: messageText, 
+            //         currentAccount, 
+            //         recipientAddress: chatAddress, 
+            //         fee: transactionWithFee.fee, 
+            //         timestamp, 
+            //     });
+            //     console.log(aggregateTransaction)
+            //     return TransactionService.sendAggregateCompleteTransaction(aggregateTransaction, currentAccount, networkProperties);
+            // }
+
+            if (messageText) {
+                const chunks = chunkStringBytes(messageText, 200);
+                return Promise.all(chunks.map(async (msg, index) => {
+                    const transaction = {
+                        ...transactionWithFee,
+                        fee: chunks.length === 1 
+                            ? transactionWithFee.fee
+                            : (transactionWithFee.fee / (chunks.length / 2)), 
+                        messageText: JSON.stringify({v: 1, t: timestamp + index, m: msg})
+                    }
+                    return TransactionService.sendTransferTransaction(transaction, currentAccount, networkProperties, chatPublicKey);
+                }));
             }
-            await TransactionService.sendTransferTransaction(transaction, currentAccount, networkProperties, chatPublicKey);
+            // if (messageText && messageText?.length < 200) {
+            //     const transaction = {
+            //         ...transactionWithFee,
+            //         messageText: JSON.stringify({v: 1, t: timestamp, m: messageText})//`@@1@t${timestamp}@m${messageText}`
+            //     }
+            //     return TransactionService.sendTransferTransaction(transaction, currentAccount, networkProperties, chatPublicKey);
+            // }
+            if (attachedImage.base64) {
+                const aggregateTransaction = createImageMessageTransaction({
+                    image: attachedImage, 
+                    currentAccount, 
+                    recipientAddress: chatAddress,
+                    recipientPublicKey: chatPublicKey,
+                    fee: transactionWithFee.fee, 
+                    timestamp, 
+                });
+                return TransactionService.sendAggregateCompleteTransaction(aggregateTransaction, currentAccount, networkProperties);
+            }
         },
         null,
         handleError
     );
+    const [attachImage, isImageAttaching] = useDataManager(
+        async () => {
+            const result = await launchImageLibrary({
+                mediaType: 'photo',
+                maxWidth: 512,
+                maxHeight: 512,
+                quality: 0.5,
+                includeBase64: true,
+                includeExtra: false,
+                presentationStyle: 'fullScreen'
+            });
+            setAttachedImage(result.assets[0]);
+            console.log('Picked image length:', result.assets[0].base64.length)
+            console.log(`${result.assets[0].width} x ${result.assets[0].height}`)
+        },
+        null,
+    );
     const handleSendPress = async () => {
-        if (!messageText || messageText === ' ' || messageText === '  ') {
+        if ((!messageText || messageText === ' ' || messageText === '  ') && !attachedImage.base64) {
             return;
         }
-        setPendingMessageTexts([...pendingMessageTexts, messageText]);
+        if (messageText) {
+            setPendingMessageTexts([...pendingMessageTexts, messageText]);
+        }
+        else if (attachedImage.base64) {
+            setPendingMessageTexts([...pendingMessageTexts, 'Sending an image...']);
+        }
         setMessageText('');
         await send();
+        setAttachedImage({});
     };
     const onEndReached = () => !isLoading && setIsNextPageRequested(true);
     const init = async () => {
         addressBookWhiteList.forEach((contact) => 
-            addressBookMap[contact.address] = contact.name.substring(0, 6)
+            addressBookMap[contact.address] = {
+                name: contact.name,
+                color: getColorFromHash(contact.address),
+            }
         );
 
         const loadedCache = await PersistentStorage.getMessageCache();
@@ -334,21 +408,11 @@ export const Chat = connect((state) => ({
 
         if (isRefreshRequested) {
             setIsRefreshRequested(false);
-            setIsUnconfirmedRequested(false);
             fetchTransactions('refresh');
-            fetchTransactions('unconfirmed');
             return;
         }
-
-        if (isUnconfirmedRequested) {
-            setIsUnconfirmedRequested(false);
-            fetchTransactions('unconfirmed');
-            return;
-        }
-    }, [isLoading, isFirstLoading, isNextPageRequested, isLastPage, isRefreshRequested, isUnconfirmedRequested]);
+    }, [isLoading, isFirstLoading, isNextPageRequested, isLastPage, isRefreshRequested]);
     useEffect(() => {
-        // blockTimeWidth.value = 0;
-        // blockTimeWidth.value = withTiming(SCREEN_WIDTH, {duration: networkProperties.blockGenerationTargetTime * 1000, easing: Easing.linear});
         if (!isRefreshRequested) {
             setIsRefreshRequested(true);
         }
@@ -373,7 +437,6 @@ export const Chat = connect((state) => ({
                         <Image source={require('src/assets/images/icon-refresh.png')} style={{ width: 24, height: 24 }} />
                     </TouchableOpacity>
                 </View>
-                {/* <Animated.View style={[styles.blockTime, blockTimeStyle]} /> */}
             </View>
             <Messages
                 isGroup={isGroup}
@@ -386,10 +449,10 @@ export const Chat = connect((state) => ({
             {isFirstLoading && <LoadingIndicator />}
             <View style={styles.footerContainer}>
                 {chatPublicKey && <Animated.View style={styles.footer} entering={FadeIn}> 
-                    {!messageText && !isTextBoxFocused && <Animated.View entering={FadeInLeft.duration(100)} exiting={FadeOutLeft.duration(50)}>
-                        <ButtonPlain icon={require('src/assets/images/icon-image-add.png')} onPress={handleSendPress} />
+                    {true && isGroup && !messageText && !attachedImage.base64 && !isTextBoxFocused && !isImageAttaching && <Animated.View entering={FadeInLeft.duration(100)} exiting={FadeOutLeft.duration(50)}>
+                        <ButtonPlain icon={require('src/assets/images/icon-image-add.png')} onPress={attachImage} />
                     </Animated.View>}
-                    <TextInput 
+                    {!attachedImage.base64 && <TextInput 
                         multiline 
                         maxLength={900} 
                         value={messageText} 
@@ -397,13 +460,19 @@ export const Chat = connect((state) => ({
                         onFocus={() => setIsTextBoxFocused(true)}
                         onBlur={() => setIsTextBoxFocused(false)}
                         style={styles.input}
-                    />
+                    />}
+                    {!!attachedImage.base64 && <Animated.View exiting={FadeOut}>
+                        <TouchableWithoutFeedback onPress={() => setAttachedImage({})}>
+                            <Image source={{uri: `data:image/jpeg;base64,${attachedImage.base64}`}} style={styles.attachedImage}/>
+                        </TouchableWithoutFeedback>
+                    </Animated.View>}
+                    {!!attachedImage.base64 && <View style={layout.fill}/>}
                     <StyledText type="body" style={styles.fee}>-{fee} {ticker}</StyledText>
                     <View>
-                        {!isLoading && <Animated.View entering={FadeInLeft}>
+                        {!isLoading && !isImageAttaching && <Animated.View entering={FadeInLeft}>
                             <ButtonPlain icon={require('src/assets/images/icon-primary-send.png')} onPress={handleSendPress} />
                         </Animated.View> }
-                        {isLoading && <Animated.View entering={FadeIn}>
+                        {(isLoading || isImageAttaching) && <Animated.View entering={FadeIn}>
                             <LoadingIndicator size="sm" style={{position: 'relative', width: 18,height: 18, marginRight: spacings.paddingSm}}/>
                         </Animated.View>}
                     </View>
@@ -483,8 +552,8 @@ const styles = StyleSheet.create({
         paddingVertical: spacings.padding,
         marginHorizontal: spacings.margin,
         marginVertical: spacings.margin / 2,
-        minWidth: 80,
-        maxWidth: '80%',
+        minWidth: 40,
+        maxWidth: '70%',
     },
     messageInSet: {
         marginVertical: 0,
@@ -518,7 +587,7 @@ const styles = StyleSheet.create({
         bottom: 2,
         right: 8,
         opacity: 0.3,
-        //backgroundColor: '#00f5'
+        height: 16
     },
     messageLockIcon: {
         width: 8,
@@ -530,25 +599,30 @@ const styles = StyleSheet.create({
         alignSelf: 'flex-start'
     },
     messageSenderName: {
-        position: 'absolute',
-        top: 44,
-        left: spacings.padding,
-        fontSize: 8,
-        lineHeight: 10,
-        opacity: 0.3,
-        width: 36,
-        textAlign: 'center'
+        // position: 'absolute',
+        // top: 2,
+        // left: spacings.padding,
+        // fontSize: 10,
+        ///
+        fontSize: 10,
+
+        marginTop: spacings.margin / 2,
+        marginLeft: spacings.margin,
+        marginBottom: - spacings.margin / 2,
     },
     date: {
+        width: '100%',
+        textAlign: 'center',
         marginRight: spacings.margin / 2,
         fontSize: 10,
-        //opacity: 0.3,
+        opacity: 0.7,
+        marginTop: spacings.margin + spacings.margin / 2,
+        marginBottom: spacings.margin / 2
     },
     iconPending: {
         marginRight: spacings.margin / 2,
-        height: 8,//10,
-        width: 8,//10,
-        //opacity: 0.3
+        height: 8,
+        width: 8,
     },
     footerOffset: {
         marginBottom: 100 + spacings.margin * 2 + spacings.padding * 2,
@@ -580,7 +654,17 @@ const styles = StyleSheet.create({
         paddingVertical: spacings.padding,
         color: colors.textBody,
     },
+    attachedImage: {
+        width: 60,
+        height: 60,
+        resizeMode: 'cover',
+        borderRadius: 12,
+        padding: spacings.margin,
+        marginRight: spacings.margin,
+    },
     fee: {
+        minWidth: '21%',
+        textAlign: 'right',
         fontSize: 10,
         color: colors.danger,
         marginRight: spacings.margin,

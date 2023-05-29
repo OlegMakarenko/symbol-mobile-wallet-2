@@ -3,7 +3,7 @@ import { StyleSheet, Text } from 'react-native';
 import { colors, fonts } from 'src/styles';
 
 export const StyledText = (props) => {
-    const { children, style, type } = props;
+    const { children, style, type, numberOfLines } = props;
     const typeStyleMap = {
         'title-large': styles.titleLarge,
         title: styles.title,
@@ -16,7 +16,7 @@ export const StyledText = (props) => {
     };
     const customStyle = typeStyleMap[type];
 
-    return <Text style={[styles.root, customStyle, style]}>{children}</Text>;
+    return <Text style={[styles.root, customStyle, style]} numberOfLines={numberOfLines}>{children}</Text>;
 };
 
 const styles = StyleSheet.create({

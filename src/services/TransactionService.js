@@ -1,5 +1,6 @@
 import {
     decryptMessage,
+    getMosaicAbsoluteAmount,
     isAggregateTransaction,
     isIncomingTransaction,
     isOutgoingTransaction,
@@ -11,7 +12,7 @@ import {
     transferTransactionToDTO,
 } from 'src/utils';
 import { AccountService } from 'src/services';
-import { Account, Address, CosignatureTransaction, Order, TransactionHttp, TransactionType } from 'symbol-sdk';
+import { Account, Address, AggregateTransaction, CosignatureTransaction, Deadline, Order, TransactionHttp, TransactionType, UInt64 } from 'symbol-sdk';
 export class TransactionService {
     static async fetchAccountTransactions(account, networkProperties, { pageNumber = 1, pageSize = 15, group = 'confirmed', filter = {} }) {
         const transactionHttp = new TransactionHttp(networkProperties.nodeUrl);
@@ -136,5 +137,30 @@ export class TransactionService {
         }
 
         throw Error('error_failed_decrypt_message_not_related');
+    }
+
+    static async sendAggregateCompleteTransaction(transaction, account, networkProperties) {
+        const networkType = networkIdentifierToNetworkType(networkProperties.networkIdentifier);
+        console.log(0)
+        const transactions = transaction.innerTransactions.map(tx =>
+            transferTransactionToDTO(tx, networkProperties, account)
+        );
+        console.log(1)
+        const currentAccount = Account.createFromPrivateKey(account.privateKey, networkType);
+        console.log(2)
+        const maxFee = UInt64.fromUint(getMosaicAbsoluteAmount(transaction.fee, networkProperties.networkCurrency.divisibility));
+        const aggregateTransaction = AggregateTransaction.createComplete(
+            Deadline.create(networkProperties.epochAdjustment),
+            transactions.map(transaction => transaction.toAggregate(currentAccount.publicAccount)),
+            networkType,
+            [],
+            maxFee
+        );
+        console.log(3)
+        const signedTransaction = currentAccount.sign(aggregateTransaction, networkProperties.generationHash);
+        console.log(4)
+        const transactionHttp = new TransactionHttp(networkProperties.nodeUrl);
+        console.log(5)
+        return transactionHttp.announce(signedTransaction).toPromise();
     }
 }
