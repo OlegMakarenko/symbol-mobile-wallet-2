@@ -38,15 +38,15 @@ const Message = memo(function Message(props) {
     const isOurMessage = signerAddress === currentAccount.address;
     const isDateShown = !isSameDay(date, previousDate);
     const messageStyle = [
-        styles.message, 
-        isOurMessage ? styles.messageOur : styles.messageTheir, 
-        isOurMessage && isMiddleMessageInSet ? {borderBottomRightRadius: 0, marginBottom: 0} : null, 
-        !isOurMessage && isMiddleMessageInSet ? {borderBottomLeftRadius: 0, marginBottom: 0} : null, 
+        styles.message,
+        isOurMessage ? styles.messageOur : styles.messageTheir,
+        isOurMessage && isMiddleMessageInSet ? {borderBottomRightRadius: 0, marginBottom: 0} : null,
+        !isOurMessage && isMiddleMessageInSet ? {borderBottomLeftRadius: 0, marginBottom: 0} : null,
         isUnconfirmed ? styles.messageUnconfirmed : null,
         //isFirstMessageInSet && signerName ? {marginTop: 0} : null
     ];
     const messageContainerStyle = [
-        styles.messageContainer, 
+        styles.messageContainer,
         isOurMessage ? styles.messageContainerOur : styles.messageContainerTheir
     ];
     const messageUrls = text.match(/(https?:\/\/[^\s]+)/g) || [];
@@ -57,7 +57,7 @@ const Message = memo(function Message(props) {
     const textStyle = messageImages.length ? {maxWidth: 200} : null;
     const avatarStyle = [
         styles.senderAvatar,
-        !isFirstMessageInSet ? {opacity: 0} : null 
+        !isFirstMessageInSet ? {opacity: 0} : null
     ];
 
     const handleMessagePress = () => {
@@ -84,8 +84,8 @@ const Message = memo(function Message(props) {
                 {!isOurMessage && isGroup && <AccountAvatar size="xm" address={signerAddress} style={avatarStyle}/>}
                 <View style={{width: '100%'}}>
                 {!isOurMessage && isGroup && isFirstMessageInSet && signerName && <StyledText type="label" style={[styles.messageSenderName, {color: signerColor}]} numberOfLines={1}>{signerName}</StyledText>}
-                <TouchableOpacity  
-                    style={messageStyle} 
+                <TouchableOpacity
+                    style={messageStyle}
                     activeOpacity={0.8}
                     onPress={handleMessagePress}
                     onLongPress={handleLongMessagePress}
@@ -107,11 +107,11 @@ const Message = memo(function Message(props) {
                     </View>
                 </TouchableOpacity>
                 </View>
-                <Animated.View entering={FadeIn} exiting={FadeOut}> 
+                <Animated.View entering={FadeIn} exiting={FadeOut}>
                     {imageBase64 && <Modal animationType="fade" visible={isImageViewVisible} onRequestClose={toggleImageView}>
                         <View style={{width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000'}}>
                             <Image source={{uri: `data:image/jpeg;base64,${imageBase64}`}} style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT, resizeMode: 'contain'}} />
-                            </View> 
+                            </View>
                     </Modal>}
                 </Animated.View>
             </Animated.View>
@@ -142,7 +142,7 @@ const Messages = memo(function Messages(props) {
             keyExtractor={(item, index) => item.hash || item.message?.timestamp || index}
             renderItem={({ item, index }) => (
                 <Message
-                    isGroup={isGroup} 
+                    isGroup={isGroup}
                     currentAccount={currentAccount}
                     signerAddress={item.signerAddress}
                     nextMessageSignerAddress={messageHistory[index + 1]?.signerAddress}
@@ -157,7 +157,7 @@ const Messages = memo(function Messages(props) {
             )}
             ListHeaderComponent={
                 <>
-                    {pendingMessageTexts.map((message, index) => 
+                    {pendingMessageTexts.map((message, index) =>
                         <Animated.View style={[styles.message, styles.messageOurPending]} entering={FadeInUp} exiting={FadeOutLeft} key={index + message}>
                             <StyledText type="body">{message}</StyledText>
                         </Animated.View>
@@ -197,7 +197,7 @@ export const Chat = connect((state) => ({
     const [isRefreshRequested, setIsRefreshRequested] = useState(false);
     const [isPrivateKeyDialogShown, togglePrivateKeyDialog] = useToggle(false);
 
-    
+
     const transaction = {
         signerAddress: currentAccount.address,
         recipientAddress: chatAddress,
@@ -270,23 +270,34 @@ export const Chat = connect((state) => ({
             setIsLastPage(isLastPage);
         }
 
+        if (pageNumber === 1 && page.length) {
+            const transactions = page.sort((a, b) => {
+                const heightCompare = b.height - a.height;
+
+                return heightCompare !== 0 ? heightCompare : a.hash.localeCompare(b.hash);
+            });
+            const latestTransactionHashMap = await PersistentStorage.getLatestTransactionHash();
+            latestTransactionHashMap[chatAddress] = transactions[0]?.hash;
+            await PersistentStorage.setLatestTransactionHash(latestTransactionHashMap);
+        }
+
         await PersistentStorage.setMessageCache(cache);
     };
-    
+
     const [fetchTransactions, isLoading] = useDataManager(fetchTransactionsDirect, null, handleError);
     const [send] = useDataManager(
         async () => {
             const timestamp = Math.round((new Date().getTime() / 1000)) - networkProperties.epochAdjustment;
-        
+
             // const isLongText = messageText?.length > 200;
 
             // if (isLongText && isGroup) {
             //     const aggregateTransaction = createLongMessageTransaction({
-            //         text: messageText, 
-            //         currentAccount, 
-            //         recipientAddress: chatAddress, 
-            //         fee: transactionWithFee.fee, 
-            //         timestamp, 
+            //         text: messageText,
+            //         currentAccount,
+            //         recipientAddress: chatAddress,
+            //         fee: transactionWithFee.fee,
+            //         timestamp,
             //     });
             //     console.log(aggregateTransaction)
             //     return TransactionService.sendAggregateCompleteTransaction(aggregateTransaction, currentAccount, networkProperties);
@@ -297,9 +308,9 @@ export const Chat = connect((state) => ({
                 return Promise.all(chunks.map(async (msg, index) => {
                     const transaction = {
                         ...transactionWithFee,
-                        fee: chunks.length === 1 
+                        fee: chunks.length === 1
                             ? transactionWithFee.fee
-                            : (transactionWithFee.fee / (chunks.length / 2)), 
+                            : (transactionWithFee.fee / (chunks.length / 2)),
                         messageText: JSON.stringify({v: 1, t: timestamp + index, m: msg})
                     }
                     return TransactionService.sendTransferTransaction(transaction, currentAccount, networkProperties, chatPublicKey);
@@ -314,12 +325,12 @@ export const Chat = connect((state) => ({
             // }
             if (attachedImage.base64) {
                 const aggregateTransaction = createImageMessageTransaction({
-                    image: attachedImage, 
-                    currentAccount, 
+                    image: attachedImage,
+                    currentAccount,
                     recipientAddress: chatAddress,
                     recipientPublicKey: chatPublicKey,
-                    fee: transactionWithFee.fee, 
-                    timestamp, 
+                    fee: transactionWithFee.fee,
+                    timestamp,
                 });
                 return TransactionService.sendAggregateCompleteTransaction(aggregateTransaction, currentAccount, networkProperties);
             }
@@ -360,7 +371,7 @@ export const Chat = connect((state) => ({
     };
     const onEndReached = () => !isLoading && setIsNextPageRequested(true);
     const init = async () => {
-        addressBookWhiteList.forEach((contact) => 
+        addressBookWhiteList.forEach((contact) =>
             addressBookMap[contact.address] = {
                 name: contact.name,
                 color: getColorFromHash(contact.address),
@@ -378,11 +389,14 @@ export const Chat = connect((state) => ({
             }
             else {
                 const { publicKey } = await AccountService.fetchAccountInfo(networkProperties, chatAddress);
+                if(publicKey.startsWith('00000000000000000000000')) {
+                    throw Error('Empty public key')
+                }
                 publicKeyMap[chatAddress] = publicKey;
-                setChatPublicKey(publicKey);  
+                setChatPublicKey(publicKey);
             }
             ListenerService.listen(networkProperties, chatAddress, {
-                onConfirmedAdd: () => setIsRefreshRequested(true), 
+                onConfirmedAdd: () => setIsRefreshRequested(true),
                 onUnconfirmedAdd: () => setIsRefreshRequested(true),
             });
         }
@@ -440,22 +454,22 @@ export const Chat = connect((state) => ({
             </View>
             <Messages
                 isGroup={isGroup}
-                currentAccount={currentAccount} 
-                confirmed={messages} 
-                unconfirmed={unconfirmedMessages} 
-                pendingMessageTexts={pendingMessageTexts} 
-                onEndReached={onEndReached} 
+                currentAccount={currentAccount}
+                confirmed={messages}
+                unconfirmed={unconfirmedMessages}
+                pendingMessageTexts={pendingMessageTexts}
+                onEndReached={onEndReached}
             />
             {isFirstLoading && <LoadingIndicator />}
             <View style={styles.footerContainer}>
-                {chatPublicKey && <Animated.View style={styles.footer} entering={FadeIn}> 
-                    {true && isGroup && !messageText && !attachedImage.base64 && !isTextBoxFocused && !isImageAttaching && <Animated.View entering={FadeInLeft.duration(100)} exiting={FadeOutLeft.duration(50)}>
+                {chatPublicKey && <Animated.View style={styles.footer} entering={FadeIn}>
+                    {false && isGroup && !messageText && !attachedImage.base64 && !isTextBoxFocused && !isImageAttaching && <Animated.View entering={FadeInLeft.duration(100)} exiting={FadeOutLeft.duration(50)}>
                         <ButtonPlain icon={require('src/assets/images/icon-image-add.png')} onPress={attachImage} />
                     </Animated.View>}
-                    {!attachedImage.base64 && <TextInput 
-                        multiline 
-                        maxLength={900} 
-                        value={messageText} 
+                    {!attachedImage.base64 && <TextInput
+                        multiline
+                        maxLength={900}
+                        value={messageText}
                         onChangeText={setMessageText}
                         onFocus={() => setIsTextBoxFocused(true)}
                         onBlur={() => setIsTextBoxFocused(false)}

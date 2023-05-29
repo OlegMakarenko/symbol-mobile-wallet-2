@@ -10,16 +10,20 @@ import { colors } from 'src/styles';
 import { handleError, useDataManager, useInit } from 'src/utils';
 import { AddressBookListWidget } from './AddressBookList';
 import { HistoryWidget } from './History';
+import { useEffect } from 'react';
+import { BackgroundService } from 'src/services/BackgroundService';
 
 export const Home = connect((state) => ({
+    addressBookWhiteList: state.addressBook.whiteList,
     balances: state.wallet.balances,
     isMultisigAccount: state.account.isMultisig,
     currentAccount: state.account.current,
     networkIdentifier: state.network.networkIdentifier,
+    networkProperties: state.network.networkProperties,
     ticker: state.network.ticker,
     isWalletReady: state.wallet.isReady,
 }))(function Home(props) {
-    const { balances, currentAccount, isMultisigAccount, networkIdentifier, ticker, isWalletReady } = props;
+    const { addressBookWhiteList, balances, currentAccount, isMultisigAccount, networkIdentifier, networkProperties, ticker, isWalletReady } = props;
     const [loadState, isLoading] = useDataManager(
         async () => {
             await store.dispatchAction({ type: 'wallet/fetchAll' });
@@ -43,6 +47,10 @@ export const Home = connect((state) => ({
         handleError
     );
     useInit(loadState, isWalletReady, [currentAccount]);
+    useEffect(() => {
+        //BackgroundService.stop();
+        // BackgroundService.start(networkProperties, currentAccount, addressBookWhiteList);
+    }, [currentAccount, networkProperties, addressBookWhiteList])
 
     const accountBalance = currentAccount ? balances[currentAccount.address] : '-';
     const accountName = currentAccount?.name || '-';

@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">Symbol Wallet</string>
-    <color name="black">#000000</color>
+    <string name="default_notification_channel_id">channel_symbol</string>
 </resources>

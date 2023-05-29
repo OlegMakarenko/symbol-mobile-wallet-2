@@ -6840,6 +6840,11 @@ react-move@^2.7.0:
     prop-types "^15.6.2"
     react-lifecycles-compat "^3.0.4"
 
+react-native-background-fetch@^4.1.9:
+  version "4.1.9"
+  resolved "https://registry.yarnpkg.com/react-native-background-fetch/-/react-native-background-fetch-4.1.9.tgz#10ebff9ca45a8868f1a72b2aa6cea40d499ece6e"
+  integrity sha512-sk4MCXRhGghBXu9ReabuT8U0WRzjsMt2i/nqCwR9eHi0hux+4kUh5ubpLKLByw5G8WifUv1sp6qsA7uvQERrrQ==
+
 react-native-camera@react-native-camera/react-native-camera#3443/head:
   version "4.2.1"
   resolved "https://codeload.github.com/react-native-camera/react-native-camera/tar.gz/b099fb0b388cbe7062ebb8f266499c6b9a2bc317"
@@ -6945,6 +6950,11 @@ react-native-permissions@^3.6.1:
   version "3.6.1"
   resolved "https://registry.yarnpkg.com/react-native-permissions/-/react-native-permissions-3.6.1.tgz#73adcc1cef8cd57a9ef167b4507405f4ff5749c4"
   integrity sha512-fzPpPQXeD34inUccqtoResSwYubfrwUguP4qrVUUv8+KSMjYSaHGoS5HaIJLZHlN9gO+TvLJZ2L5ZljTsb6qnQ==
+
+react-native-push-notification@^8.1.1:
+  version "8.1.1"
+  resolved "https://registry.yarnpkg.com/react-native-push-notification/-/react-native-push-notification-8.1.1.tgz#a41d20c70ea5a7709417e96261b225461f8dc73a"
+  integrity sha512-XpBtG/w+a6WXTxu6l1dNYyTiHnbgnvjoc3KxPTxYkaIABRmvuJZkFxqruyGvfCw7ELAlZEAJO+dthdTabCe1XA==
 
 react-native-qrcode-scanner@^1.5.5:
   version "1.5.5"

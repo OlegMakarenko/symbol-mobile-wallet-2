@@ -16,6 +16,8 @@ export class PersistentStorage {
     static ADDRESS_BOOK_KEY = 'addressBook';
     static CHAT_GROUPS_KEY = 'chatGroups';
     static MESSAGE_CACHE_KEY = 'messageCache';
+    static LATEST_TRANSACTION_HASH = 'latestTransactionHash';
+    static LATEST_GROUP_MESSAGE_HASH = 'latestGroupMessageHash';
 
     // Data Schema Version
     static getDataSchemaVersion = async () => {
@@ -214,6 +216,38 @@ export class PersistentStorage {
         return this.set(this.MESSAGE_CACHE_KEY, JSON.stringify(payload));
     }
 
+    // Latest Transaction Hash Infos
+    static async getLatestTransactionHash() {
+        const value = await this.get(this.LATEST_TRANSACTION_HASH);
+        const defaultValue = {};
+
+        try {
+            return JSON.parse(value) || defaultValue;
+        } catch {
+            return defaultValue;
+        }
+    }
+
+    static async setLatestTransactionHash(payload) {
+        return this.set(this.LATEST_TRANSACTION_HASH, JSON.stringify(payload));
+    }
+
+    // Latest Transaction Hash Infos
+    static async getLatestGroupMessageHash() {
+        const value = await this.get(this.LATEST_GROUP_MESSAGE_HASH);
+        const defaultValue = {};
+
+        try {
+            return JSON.parse(value) || defaultValue;
+        } catch {
+            return defaultValue;
+        }
+    }
+
+    static async setLatestGroupMessageHash(payload) {
+        return this.set(this.LATEST_GROUP_MESSAGE_HASH, JSON.stringify(payload));
+    }
+
     // API
     static set = (key, value) => {
         return AsyncStorage.setItem(key, value);
@@ -241,7 +275,9 @@ export class PersistentStorage {
             this.remove(this.ACCOUNT_INFOS_KEY),
             this.remove(this.ADDRESS_BOOK_KEY),
             this.remove(this.CHAT_GROUPS_KEY),
-            this.remove(MESSAGE_CACHE_KEY),
+            this.remove(this.MESSAGE_CACHE_KEY),
+            this.remove(this.LATEST_TRANSACTION_HASH),
+            this.remove(this.LATEST_GROUP_MESSAGE_HASH),
         ]);
     };
 }

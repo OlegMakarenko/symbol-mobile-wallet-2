@@ -25,7 +25,9 @@ export class TransactionService {
             order: Order.Desc,
         };
 
-        if (filter.from) {
+        if (filter.direction === 'incoming') {
+            baseSearchCriteria.recipientAddress = address;
+        } else if (filter.from) {
             const fromAccount = await AccountService.fetchAccountInfo(networkProperties, filter.from);
             baseSearchCriteria.signerPublicKey = fromAccount.publicKey;
             baseSearchCriteria.recipientAddress = address;

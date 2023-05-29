@@ -12,6 +12,8 @@ import store from 'src/store';
 import { initLocalization } from './localization';
 import { Router, RouterView } from './Router';
 import { colors, fonts, layout } from './styles';
+import { BackgroundService } from './services/BackgroundService';
+import BackgroundFetch from 'react-native-background-fetch';
 
 const unsafeAreaStyle = { ...layout.fill, backgroundColor: colors.bgStatusbar };
 const safeAreaStyle = { ...layout.fill, backgroundColor: colors.bgGray };
@@ -73,7 +75,7 @@ const App = () => {
                         <StatusBar backgroundColor={colors.bgStatusbar} barStyle="light-content" />
                         <Provider store={store}>
                             {isMainContainerShown && <ConnectionStatus />}
-                            <FlashMessage 
+                            <FlashMessage
                                 statusBarHeight={8} animationDuration={200} titleStyle={flashMessageTextStyle} style={flashMessageStyle} />
                             <RouterView isActive={isMainContainerShown} />
                             {isPasscodeShown && <Passcode hideCancelButton keepListener keepNavigation route={{ params: passcodeParams }} />}
